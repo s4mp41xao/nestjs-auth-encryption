@@ -3,15 +3,18 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { randomBytes, scrypt as _scrypt } from 'crypto';
 import { promisify } from 'util';
 
 const scrypt = promisify(_scrypt);
 
-const users: { email: string; password: string }[] = [];
+const users: { email: string; password: string; userId: string }[] = [];
 
 @Injectable()
 export class AuthService {
+  constructor(private readonly jwtService: JwtService) {}
+
   async signUp(email: string, password: string) {
     const existngUser = users.find((user) => user.email === email);
     if (existngUser) {
@@ -25,6 +28,7 @@ export class AuthService {
     const user = {
       email,
       password: saltAndHash,
+      userId: randomBytes(4).toString('hex'), // Generate a random userId
     };
 
     users.push(user);
@@ -48,7 +52,7 @@ export class AuthService {
     }
 
     console.log('Usuário logado', user);
-    const { password: _, ...result } = user;
-    return result;
+    const payload = { username: user.email, sub: user.userId };
+    return { accessToken: this.jwtService.sign(payload) };
   }
 }
