@@ -7,8 +7,8 @@ export class AuthController {
 
   @Post('signup')
   signUp(@Body() body: any) {
-    const { email, password } = body;
-    return this.authService.signUp(email, password);
+    const { email, password, roles } = body;
+    return this.authService.signUp(email, password, roles);
   }
 
   @Post('signin')

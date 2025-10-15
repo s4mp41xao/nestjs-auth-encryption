@@ -9,13 +9,18 @@ import { promisify } from 'util';
 
 const scrypt = promisify(_scrypt);
 
-const users: { email: string; password: string; userId: string }[] = [];
+const users: {
+  email: string;
+  password: string;
+  userId: string;
+  roles: string[];
+}[] = [];
 
 @Injectable()
 export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
-  async signUp(email: string, password: string) {
+  async signUp(email: string, password: string, roles: string[] = []) {
     const existngUser = users.find((user) => user.email === email);
     if (existngUser) {
       return new BadRequestException('Email em uso');
@@ -28,6 +33,7 @@ export class AuthService {
     const user = {
       email,
       password: saltAndHash,
+      roles,
       userId: randomBytes(4).toString('hex'), // Generate a random userId
     };
 
@@ -52,7 +58,11 @@ export class AuthService {
     }
 
     console.log('Usuário logado', user);
-    const payload = { username: user.email, sub: user.userId };
+    const payload = {
+      username: user.email,
+      sub: user.userId,
+      roles: user.roles,
+    };
     return { accessToken: this.jwtService.sign(payload) };
   }
 }
