@@ -1,0 +1,8 @@
+### public
+
+GET http://localhost:3000/feature/public
+
+### private
+
+GET http://localhost:3000/feature/private
+Authorization: Bearer <token>
