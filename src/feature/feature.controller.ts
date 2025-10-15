@@ -1,4 +1,6 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { CurrentUser } from 'src/auth/dto/current-user.decorator';
+import { CurrentUserDTO } from 'src/auth/dto/current-user.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('feature')
@@ -10,7 +12,7 @@ export class FeatureController {
 
   @Get('private')
   @UseGuards(JwtAuthGuard)
-  getPrivateFeature() {
-    return 'This is a private feature';
+  getPrivateFeature(@CurrentUser() user: CurrentUserDTO) {
+    return `This is a private feature ${user.username}`;
   }
 }
