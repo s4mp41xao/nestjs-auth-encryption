@@ -4,17 +4,21 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { randomBytes, scrypt as _scrypt } from 'crypto';
+import { randomBytes, scrypt as _scrypt, UUID } from 'crypto';
+import { access } from 'fs';
 import { promisify } from 'util';
+import { v4 as uuid } from 'uuid';
 
 const scrypt = promisify(_scrypt);
 
 const users: {
   email: string;
   password: string;
-  userId: string;
+  id: string;
   roles: string[];
 }[] = [];
+
+const refreshTokens: { value: string }[] = [];
 
 @Injectable()
 export class AuthService {
@@ -33,8 +37,8 @@ export class AuthService {
     const user = {
       email,
       password: saltAndHash,
+      id: uuid(),
       roles,
-      userId: randomBytes(4).toString('hex'), // Generate a random userId
     };
 
     users.push(user);
@@ -60,9 +64,61 @@ export class AuthService {
     console.log('Usuário logado', user);
     const payload = {
       username: user.email,
-      sub: user.userId,
+      sub: user.id,
       roles: user.roles,
     };
-    return { accessToken: this.jwtService.sign(payload) };
+
+    const accessToken = this.jwtService.sign(
+      { ...payload, type: 'access' },
+      { expiresIn: '60s' },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { ...payload, type: 'refresh' },
+      { expiresIn: '1h' },
+    );
+
+    refreshTokens.push({ value: refreshToken });
+
+    return { accessToken, refreshToken };
+  }
+
+  async refresh(refreshToken: string) {
+    const storedToken = refreshTokens.find(
+      (token) => token.value === refreshToken,
+    );
+    if (!storedToken) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const payload = this.jwtService.verify(refreshToken);
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedException('Tipo de token inválido');
+    }
+
+    const user = users.find((user) => user.id === payload.sub);
+    if (!user) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const newPayload = {
+      username: user.email,
+      sub: user.id,
+      roles: user.roles,
+    };
+
+    const newAccessToken = this.jwtService.sign(
+      { ...newPayload, type: 'access' },
+      { expiresIn: '60s' },
+    );
+
+    const newRefreshToken = this.jwtService.sign(
+      { ...newPayload, type: 'refresh' },
+      { expiresIn: '1h' },
+    );
+
+    storedToken.value = newRefreshToken;
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   }
 }
